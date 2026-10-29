@@ -35,7 +35,7 @@ class CubeTimerApp:
     # Generates a random 3x3 scamble in WCA format
     def new_scramble(self, event=None):
         moves = ["R", "L", "U", "D", "F", "B"]
-        modifiers = ["", "'", "2"]
+        modifiers = [" ", "'", "2"]
         
         scramble = []
         last_face = ""

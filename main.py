@@ -65,6 +65,9 @@ class CubeTimerApp:
             self.scramble_label.config(fg='white')
             self.title_label.config(text="Rubik's Cube Timer & Stats")
 
+            with open("times.txt", "a") as f:
+                f.write(f"DNF ({elapsed:.3f})\n")
+
     def on_space_press(self, event=None):
         # Cancel if the release timer is running (debounce filter)
         if self.release_timer_id is not None:
@@ -81,6 +84,10 @@ class CubeTimerApp:
             self.new_scramble()
             self.scramble_label.config(fg='white')
             self.title_label.config(text="Rubik's Cube Timer & Stats")
+
+            with open("times.txt", "a") as f:
+                f.write(f"{elapsed:.3f}\n")
+
             return
 
         # Ignore if not idle (prevents spamming while holding)

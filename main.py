@@ -27,6 +27,7 @@ class CubeTimerApp:
 
         self.root.bind("<KeyPress-space>", self.on_space_press)
         self.root.bind("<KeyRelease-space>", self.on_space_release)
+        self.root.bind("<Escape>", self.on_escape)
         self.root.bind("<r>", self.new_scramble)
 
         self.new_scramble()
@@ -50,6 +51,11 @@ class CubeTimerApp:
         scramble_text = " ".join(scramble)
         self.scramble_label.config(text=scramble_text)
 
+    def on_escape(self, event=None):
+        if self.timer_state == 'holding' or 'ready':
+            self.timer_state = 'idle'
+            self.timer_label.config(text="0.000", fg='white')
+
     def on_space_press(self, event=None):
         # Cancel if the release timer is running (debounce filter)
         if self.release_timer_id is not None:
@@ -64,6 +70,8 @@ class CubeTimerApp:
             elapsed = time.time() - self.start_time
             self.timer_label.config(text=f"{elapsed:.3f}", fg='white')
             self.new_scramble()
+            self.scramble_label.config(fg='white')
+            self.title_label.config(text="Rubik's Cube Timer & Stats")
             return
 
         # Ignore if not idle (prevents spamming while holding)
@@ -108,6 +116,8 @@ class CubeTimerApp:
             self.timer_running = True
             self.start_time = time.time()
             self.timer_label.config(fg='white')
+            self.scramble_label.config(fg="#1e1e1e")
+            self.title_label.config(text="Solving...")
             self.update_timer()
 
     # Updates the timer display every 10ms while running

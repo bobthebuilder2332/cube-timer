@@ -59,7 +59,8 @@ class CubeTimerApp:
         elif self.timer_state == 'running': # DNF
             self.timer_running = False
             self.timer_state = 'idle'
-            self.timer_label.config(text="DNF", fg='red')
+            elapsed = time.time() - self.start_time
+            self.timer_label.config(text=f"DNF ({elapsed:.3f})", fg='red')
             self.new_scramble()
             self.scramble_label.config(fg='white')
             self.title_label.config(text="Rubik's Cube Timer & Stats")

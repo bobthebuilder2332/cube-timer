@@ -15,6 +15,11 @@ class CubeTimerApp:
         self.press_start_time = 0  
         self.timer_state = 'idle'  # idle, holding, ready, running
         self.release_timer_id = None # Debounce filter for ghost key releases
+
+        self.last_solve = -1
+        self.fastest_solve = -1
+
+        self.load_times()
         
         self.title_label = tk.Label(root, text="Rubik's Cube Timer & Stats", font=("Arial", 20, "bold"), bg="#1e1e1e", fg="white")
         self.title_label.pack(pady=20)
@@ -32,10 +37,30 @@ class CubeTimerApp:
 
         self.new_scramble()
 
+    # Attempts to load data from times.txt
+    def load_times(self):
+        try:
+            with open('times.txt', 'r') as f:
+                lines = f.readlines()
+                valid_times = []
+                for line in lines:
+                    line = line.strip()
+                    if line and not line.startswith('DNF'):
+                        try:
+                            valid_times.append(float(line))
+                        except ValueError:
+                            pass
+
+                if valid_times:
+                    self.fastest_solve = min(valid_times)
+                    self.last_solve = valid_times[-1]
+        except FileNotFoundError:
+            pass
+
     # Generates a random 3x3 scamble in WCA format
     def new_scramble(self, event=None):
         moves = ["R", "L", "U", "D", "F", "B"]
-        modifiers = [" ", "'", "2"]
+        modifiers = ["", "'", "2"]
         
         scramble = []
         last_face = ""
@@ -45,7 +70,7 @@ class CubeTimerApp:
             face = random.choice(available_moves)
             modifier = random.choice(modifiers)
             
-            scramble.append(face + modifier)
+            scramble.append((face + modifier).ljust(2))
             last_face = face
             
         scramble_text = " ".join(scramble)
@@ -61,6 +86,7 @@ class CubeTimerApp:
             self.timer_state = 'idle'
             elapsed = time.time() - self.start_time
             self.timer_label.config(text=f"DNF ({elapsed:.3f})", fg='red')
+            self.last_solve = -1
             self.new_scramble()
             self.scramble_label.config(fg='white')
             self.title_label.config(text="Rubik's Cube Timer & Stats")
@@ -80,7 +106,17 @@ class CubeTimerApp:
             self.timer_running = False
             self.timer_state = 'idle'
             elapsed = time.time() - self.start_time
-            self.timer_label.config(text=f"{elapsed:.3f}", fg='white')
+            self.timer_label.config(text=f"{elapsed:.3f}")
+
+            if elapsed < self.fastest_solve or self.fastest_solve == -1:
+                self.fastest_solve = elapsed
+                self.timer_label.config(fg='purple')
+            elif elapsed < self.last_solve or self.last_solve == -1:
+                self.timer_label.config(fg='green')
+            elif elapsed > self.last_solve:
+                self.timer_label.config(fg='orange')
+
+            self.last_solve = elapsed
             self.new_scramble()
             self.scramble_label.config(fg='white')
             self.title_label.config(text="Rubik's Cube Timer & Stats")

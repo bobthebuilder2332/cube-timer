@@ -221,3 +221,5 @@ __marimo__/
 
 # Ignore all text files in the repository
 *.txt
+
+.DS_Store

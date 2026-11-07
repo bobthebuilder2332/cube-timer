@@ -220,6 +220,6 @@ __marimo__/
 .streamlit/secrets.toml
 
 # Ignore all text files in the repository
-*.txt
+*.json
 
 .DS_Store

@@ -1,6 +1,8 @@
 import tkinter as tk
 import random
 import time
+import json
+import os
 
 class CubeTimerApp:
     def __init__(self, root):
@@ -21,7 +23,10 @@ class CubeTimerApp:
         self.ao3 = -1
         self.ao12 = -1
 
-        self.load_times()
+        self.solves = []
+        self.current_scramble = ""
+
+        self.load_data()
 
         self.title_label = tk.Label(root, text="Speedcubing Timer and Stats", font=('Arial', 20, 'bold'), bg='#1e1e1e', fg='white')
         self.title_label.pack(pady=20)
@@ -51,25 +56,82 @@ class CubeTimerApp:
 
         self.new_scramble()
 
-    # Attempts to load data from times.txt
-    def load_times(self):
-        try:
-            with open('times.txt', 'r') as f:
-                lines = f.readlines()
-                valid_times = []
-                for line in lines:
-                    line = line.strip()
-                    if line and not line.startswith('DNF'):
-                        try:
-                            valid_times.append(float(line))
-                        except ValueError:
-                            pass
+        self.update_stats_display()
 
+    # Attempts to load data from data.json
+    def load_data(self):
+        if os.path.exists('data.json'):
+            try:
+                with open('data.json', 'r') as f:
+                    self.solves = json.load(f)
+
+                valid_times = [s['time'] for s in self.solves if s['status'] == 'OK']
                 if valid_times:
                     self.fastest_solve = min(valid_times)
-                    self.last_solve = valid_times[-1]
-        except FileNotFoundError:
-            pass
+                    self.last_solve = self.solves[0]['time'] if self.solves[0]['status'] == 'OK' else -1
+            except (json.JSONDecodeError, KeyError):
+                self.solves = []
+
+    # Save data to data.json
+    def save_data(self):
+        with open('data.json', 'w') as f:
+            json.dump(self.solves, f, indent=4) # json.dump converts Python data structure to JSON format; indent for readability
+
+    # Record the solve and associated data to the top of the data list
+    def record_solve(self, elapsed, status='OK'):
+        solve_number = len(self.solves) + 1
+        entry = {
+            "number": solve_number,
+            "time": round(elapsed, 3),
+            "status": status,
+            "scramble": self.current_scramble
+        }
+        self.solves.insert(0, entry)
+        self.save_data()
+
+    # Calculates the current metrics using valid solves only (pb, mo3, ao3, ao12)
+    def update_stats_display(self):
+        valid_solves = [s['time'] for s in self.solves if s['status'] == 'OK']
+
+        if valid_solves:
+            self.fastest_solve = min(valid_solves)
+            self.pb_label.config(text=f"Fastest Solve: {self.fastest_solve:.3f}")
+
+        chronological_solves = self.solves[::-1]
+
+        if len(chronological_solves) >= 3:
+            last_3 = chronological_solves[-3:]
+            if any(s['status'] == 'DNF' for s in last_3):
+                self.mo3_label.config(text="Mo3: DNF")
+            else:
+                mo3_val = sum(s['time'] for s in last_3) / 3
+                self.mo3_label.config(text=f"Mo3: {mo3_val:.3f}")
+
+        if len(chronological_solves) >= 3:
+            last_3 = chronological_solves[-3:]
+            dnf_count = sum(1 for s in last_3 if s['status'] == 'DNF')
+
+            if dnf_count >= 2:
+                self.ao3_label.config(text="Ao3: DNF")
+            else:
+                times_only = [s['time'] if s['status'] == 'OK' else float('inf') for s in last_3]
+                times_only.sort()
+
+                ao3_val = times_only[1]
+                self.ao3_label.config(text=f"Ao3: {ao3_val:.3f}")
+
+        if len(chronological_solves) >= 12:
+            last_12 = chronological_solves[-12:]
+            dnf_count = sum(1 for s in last_12 if s['status'] == 'DNF')
+
+            if dnf_count >= 2:
+                self.ao12_label.config(text="Ao12: DNF")
+            else:
+                times_only = [s['time'] if s['status'] == 'OK' else float('inf') for s in last_12]
+                times_only.sort()
+
+                ao12_val = sum(times_only[1:11]) / 10
+                self.ao12_label.config(text=f"Ao12: {ao12_val:.3f}")
 
     # Generates a random 3x3 scramble in WCA format
     def new_scramble(self, event=None):
@@ -90,7 +152,9 @@ class CubeTimerApp:
             scramble.append((move + modifier).center(3))
             last_move = move
 
-        self.scramble_label.config(text="".join(scramble))
+        self.current_scramble = "".join(scramble)
+
+        self.scramble_label.config(text=self.current_scramble)
 
     def on_escape(self, event=None):
         if self.timer_state == 'holding' or self.timer_state == 'ready': # Cancel start
@@ -100,12 +164,13 @@ class CubeTimerApp:
         elif self.timer_state == 'running': # Early start -> DNF
             self.timer_running = False
             self.timer_state = 'idle'
-            self.timer_label.config(text=f"DNF ({(time.time() - self.start_time):.3f})", fg='red')
+            elapsed = time.time() - self.start_time
+            self.timer_label.config(text=f"DNF ({elapsed:.3f})", fg='red')
             self.last_solve = -1
-            self.new_scramble()
 
-            with open('times.txt', 'a') as f:
-                f.write('DNF')
+            self.record_solve(elapsed, status='DNF')
+            self.new_scramble()
+            self.update_stats_display()
 
     def on_space_press(self, event=None):
         if self.release_timer_id is not None: # Cancel if the release timer is running (debounce filter)
@@ -130,10 +195,11 @@ class CubeTimerApp:
                 self.timer_label.config(fg='orange')
 
             self.last_solve = elapsed
-            self.new_scramble()
 
-            with open('times.txt', 'a') as f:
-                f.write(f"{elapsed:.3f}\n")
+            self.record_solve(elapsed, status='OK')
+            self.update_stats_display()
+
+            self.new_scramble()
 
             return
 

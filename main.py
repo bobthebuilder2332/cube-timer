@@ -59,6 +59,7 @@ class CubeTimerApp:
         self.root.bind('<KeyRelease-space>', self.on_space_release)
         self.root.bind('<Escape>', self.on_escape)
         self.root.bind('<r>', self.new_scramble)
+        self.root.bind('<h>', self.toggle_history_window)
 
         self.new_scramble()
 
@@ -157,6 +158,8 @@ class CubeTimerApp:
 
         self.history_win.protocol('WM_DELETE_WINDOW', self.on_history_close)
 
+        self.history_win.bind('<h>', self.toggle_history_window)
+
         history_title = tk.Label(self.history_win, text="Solve Data", font=('Arial', 16, 'bold'), bg='#1e1e1e', fg='white')
         history_title.pack(pady=10)
 
@@ -170,6 +173,14 @@ class CubeTimerApp:
         self.populate_history_text()
 
         self.history_text_area.configure(state=tk.DISABLED)
+
+    def toggle_history_window(self, event=None):
+        if self.history_win is not None and self.history_win.winfo_exists():
+            self.history_win.destroy()
+            self.history_win = None
+            self.history_text_area = None
+        else:
+            self.open_history_window()
 
     # Reset history open flag
     def on_history_close(self):
@@ -231,9 +242,9 @@ class CubeTimerApp:
             self.timer_label.config(text=f"DNF ({elapsed:.3f})", fg='red')
             self.last_solve = -1
 
+            self.update_stats_display()
             self.record_solve(elapsed, status='DNF')
             self.new_scramble()
-            self.update_stats_display()
 
     def on_space_press(self, event=None):
         if self.release_timer_id is not None: # Cancel if the release timer is running (debounce filter)
@@ -259,8 +270,8 @@ class CubeTimerApp:
 
             self.last_solve = elapsed
 
-            self.record_solve(elapsed, status='OK')
             self.update_stats_display()
+            self.record_solve(elapsed, status='OK')
 
             self.new_scramble()
 

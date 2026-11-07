@@ -8,7 +8,7 @@ class CubeTimerApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Python Speedcube Timer")
-        self.root.geometry('800x500')
+        self.root.geometry('1200x750')
         self.root.configure(bg='#1e1e1e')
 
         self.timer_running = False
@@ -48,6 +48,12 @@ class CubeTimerApp:
 
         self.ao12_label = tk.Label(root, text=f"Ao12: {self.ao12 if self.ao12 != -1 else 'N/A'}", font=('Arial', 14), bg='#1e1e1e', fg='white')
         self.ao12_label.pack(pady=5)
+
+        self.history_button = tk.Button(root, text="View History", font=('Arial', 12), bg='#333333', fg='#1e1e1e', command=self.open_history_window)
+        self.history_button.pack(pady=5)
+
+        self.history_win = None
+        self.history_text_area = None
 
         self.root.bind('<KeyPress-space>', self.on_space_press)
         self.root.bind('<KeyRelease-space>', self.on_space_release)
@@ -89,7 +95,13 @@ class CubeTimerApp:
         self.solves.insert(0, entry)
         self.save_data()
 
-    # Calculates the current metrics using valid solves only (pb, mo3, ao3, ao12)
+        if self.history_win is not None and self.history_text_area is not None:
+            self.history_text_area.configure(state=tk.NORMAL)
+            self.history_text_area.delete('1.0', tk.END)
+            self.populate_history_text()
+            self.history_text_area.configure(state=tk.DISABLED)
+
+    # Calculates the current metrics (pb, mo3, ao3, ao12)
     def update_stats_display(self):
         valid_solves = [s['time'] for s in self.solves if s['status'] == 'OK']
 
@@ -132,6 +144,57 @@ class CubeTimerApp:
 
                 ao12_val = sum(times_only[1:11]) / 10
                 self.ao12_label.config(text=f"Ao12: {ao12_val:.3f}")
+
+    # Opens a second window with saved solve data
+    def open_history_window(self):
+        if self.history_win is not None and self.history_win.winfo_exists():
+            self.history_win.destroy()
+
+        self.history_win = tk.Toplevel(self.root)
+        self.history_win.title("Solve History Log")
+        self.history_win.geometry('800x500')
+        self.history_win.configure(bg='#1e1e1e')
+
+        self.history_win.protocol('WM_DELETE_WINDOW', self.on_history_close)
+
+        history_title = tk.Label(self.history_win, text="Solve Data", font=('Arial', 16, 'bold'), bg='#1e1e1e', fg='white')
+        history_title.pack(pady=10)
+
+        self.history_text_area = tk.Text(self.history_win, bg='#2d2d2d', fg='white', font=('Courier', 10))
+        self.history_text_area.pack(expand=True, fill='both', padx=10, pady=10)
+
+        self.history_text_area.tag_config('dnf_color', foreground='red')
+        self.history_text_area.tag_config('pb_color', foreground='purple')
+        self.history_text_area.tag_config('normal_color', foreground='white')
+
+        self.populate_history_text()
+
+        self.history_text_area.configure(state=tk.DISABLED)
+
+    # Reset history open flag
+    def on_history_close(self):
+        if self.history_win is not None:
+            self.history_win.destroy()
+        self.history_win = None
+        self.history_text_area = None
+
+    # Update data into history window
+    def populate_history_text(self):
+        if not self.solves:
+            self.history_text_area.insert(tk.END, "No solves recorded yet")
+        else:
+            for s in self.solves:
+                time_display = f"{s['time']:.3f}" if s['status'] == 'OK' else "DNF"
+                row_text = f"Solve #{s['number']:<4} | {time_display:<7} | Scramble: {s['scramble']}\n"
+
+                if s['status'] == 'DNF':
+                    color = 'dnf_color'
+                elif round(s['time'], 3) == round(self.fastest_solve, 3): # Round because of floating point precision issues
+                    color = 'pb_color'
+                else:
+                    color = 'normal_color'
+                
+                self.history_text_area.insert(tk.END, row_text, color)
 
     # Generates a random 3x3 scramble in WCA format
     def new_scramble(self, event=None):
